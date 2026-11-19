@@ -2,9 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches:
-      - main
-      - master
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -14,7 +12,7 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -22,24 +20,22 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-
+          node-version: 22
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
-
       - name: Install dependencies
-        run: bun install
-
-      - name: Build production bundle
-        run: bun run build
-
+        run: bun install || npm install --legacy-peer-deps
+      - name: Build Vite production bundle
+        run: bun run build || npm run build
+      - name: Prepare SPA fallback and disable Jekyll
+        run: |
+          cp dist/index.html dist/404.html
+          touch dist/.nojekyll
       - name: Setup Pages
         uses: actions/configure-pages@v5
-
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
