@@ -26,11 +26,12 @@ interface SharePublishModalProps {
 const SHARED_APP_ORIGIN =
   'https://ais-pre-umolcdyzpbv5t4sa6bx4n5-408927388191.asia-northeast1.run.app';
 
-function getPublicShareOrigin(): string {
+function getPublicShareBaseUrl(): string {
   if (typeof window === 'undefined') return SHARED_APP_ORIGIN;
-  const origin = window.location.origin;
+  const { origin, pathname } = window.location;
   if (origin.includes('ais-dev-')) return SHARED_APP_ORIGIN;
-  return origin;
+  const cleanPath = pathname.replace(/\/index\.html$/, '').replace(/\/+$/, '');
+  return `${origin}${cleanPath}`;
 }
 
 interface SharePreset {
@@ -111,7 +112,7 @@ export const SharePublishModal: React.FC<SharePublishModalProps> = ({
   const [selectedPresetId, setSelectedPresetId] = useState<string>('publicity');
   const [copiedKey, setCopiedKey] = useState<'url' | 'announcement' | 'current' | null>(null);
 
-  const baseOrigin = useMemo(() => getPublicShareOrigin(), []);
+  const baseOrigin = useMemo(() => getPublicShareBaseUrl(), []);
   const selectedPreset =
     SHARE_PRESETS.find((p) => p.id === selectedPresetId) || SHARE_PRESETS[0];
 
