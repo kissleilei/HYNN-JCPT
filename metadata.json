@@ -1,0 +1,6 @@
+{
+  "name": "跨部门问责与奖惩管理平台",
+  "description": "基于钉钉工作台集成的企业级跨部门问责、奖励表彰、申诉复核、制度引擎与员工长期奖惩档案管理平台。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
