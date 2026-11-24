@@ -1,603 +1,441 @@
-import { useEffect, useRef, useState } from 'react';
-import { Menu, X } from 'lucide-react';
-import { AccountabilityView } from './components/AccountabilityView';
-import { AppealsAndPublicityView } from './components/AppealsAndPublicityView';
-import { ArchivesAndAuditView } from './components/ArchivesAndAuditView';
-import { DingTalkDrawer } from './components/DingTalkDrawer';
-import { GovernanceAnalyticsView } from './components/GovernanceAnalyticsView';
-import { NewAccountabilityModal } from './components/NewAccountabilityModal';
-import { PolicyAndAdminView } from './components/PolicyAndAdminView';
-import { PolicyStandardsView } from './components/PolicyStandardsView';
-import { PublicityBoardView } from './components/PublicityBoardView';
-import { RewardsView } from './components/RewardsView';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  BarChart2,
+  BookOpen,
+  CheckCircle2,
+  ChevronRight,
+  FilePlus2,
+  LogIn,
+  LogOut,
+  Megaphone,
+  Settings,
+  Share2,
+} from 'lucide-react';
+import { AdminOaConsole } from './components/AdminOaConsole';
+import { MonthlyPublicityBoard } from './components/MonthlyPublicityBoard';
+import { OaSubmissionPortal } from './components/OaSubmissionPortal';
+import { PolicyLearningCenter } from './components/PolicyLearningCenter';
 import { SharePublishModal } from './components/SharePublishModal';
-import { isSectionAllowedForRole, NavSection, Sidebar } from './components/Sidebar';
-import { TopBar } from './components/TopBar';
-import { WorkbenchView } from './components/WorkbenchView';
 import { PolicyRubricItem } from './data/policyRubricData';
-import { usePlatformStore } from './store/usePlatformStore';
+import { usePhase2Platform } from './hooks/usePhase2Platform';
+import { Phase2Section } from './types/phase2';
 
-const ACTION_DELAY_MS = 280;
-
-const VALID_SECTIONS: NavSection[] = [
-  'workbench',
-  'publicity',
-  'analytics',
-  'accountability',
-  'rewards',
-  'appeals',
-  'archives',
-  'standards',
-  'admin',
-];
-
-function getInitialSectionFromUrl(): NavSection {
-  try {
-    if (typeof window === 'undefined') return 'workbench';
-    const sec = new URLSearchParams(window.location.search).get('section') as NavSection | null;
-    if (sec && VALID_SECTIONS.includes(sec)) return sec;
-  } catch {
-    // ignore URL parse errors
+function getInitialTab(): Phase2Section {
+  if (typeof window === 'undefined') return 'publicity';
+  const param = new URLSearchParams(window.location.search).get('tab');
+  if (param === 'publicity' || param === 'policy' || param === 'oa' || param === 'admin') {
+    return param;
   }
-  return 'workbench';
+  return 'publicity';
 }
 
-export default function App() {
+export function App() {
   const {
-    state,
-    currentUser,
-    switchRolePersona,
-    switchEmployeeById,
-    resetDemoData,
-    canRevealConfidentialIdentity,
-    getDisplayReporterName,
-    revealConfidentialReporter,
-    submitAccountabilityTicket,
-    confirmDepartmentSide,
-    submitRespondentStatement,
-    triggerErProactiveIntervention,
-    executeOrEscalateTicket,
-    executiveDecideTicket,
-    urgeOrEscalateTicket,
-    submitRewardNomination,
-    advanceRewardStatus,
-    urgeReward,
-    submitAppeal,
-    decideAppeal,
-    updatePolicyGrade,
-    importEmployees,
-    toggleEmployeeTag,
-    recordPayrollExport,
-    markAllNotificationsRead,
-  } = usePlatformStore();
+    user,
+    isAdmin,
+    publicityRecords,
+    publicityFromDb,
+    dingtalkMembers,
+    directoryFromDb,
+    oaSubmissions,
+    dingtalkStatus,
+    localKudosVotedIds,
+    localAckVotedIds,
+    busyAction,
+    signInWithGoogle,
+    signOutUser,
+    toggleKudos,
+    toggleAck,
+    submitMultiOaApplications,
+    advanceOaSubmission,
+    seedDatabaseDefaults,
+    syncDingTalkDirectory,
+    addDingTalkMember,
+  } = usePhase2Platform();
 
-  const [activeSection, setActiveSection] = useState<NavSection>(getInitialSectionFromUrl);
-  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(
-    state.tickets[0]?.id || null
-  );
-  const [dingTalkOpen, setDingTalkOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<Phase2Section>(getInitialTab);
+  const [prefilledRubric, setPrefilledRubric] = useState<PolicyRubricItem | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
-  const [newAccModalOpen, setNewAccModalOpen] = useState(false);
-  const [prefillRubric, setPrefillRubric] = useState<PolicyRubricItem | null>(null);
-  const [prefillRewardRubric, setPrefillRewardRubric] = useState<PolicyRubricItem | null>(null);
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [pendingActions, setPendingActions] = useState<Record<string, boolean>>({});
-  const pendingRef = useRef<Set<string>>(new Set());
 
-  const isActionPending = (key: string) => Boolean(pendingActions[key]);
-
-  const runGuardedAction = async <T,>(
-    key: string,
-    action: () => T | Promise<T>
-  ): Promise<T | undefined> => {
-    if (pendingRef.current.has(key)) return undefined;
-    pendingRef.current.add(key);
-    setPendingActions((prev) => ({ ...prev, [key]: true }));
-    try {
-      await new Promise((resolve) => setTimeout(resolve, ACTION_DELAY_MS));
-      return await action();
-    } finally {
-      pendingRef.current.delete(key);
-      setPendingActions((prev) => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
-    }
-  };
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage((prev) => (prev === msg ? null : prev));
-    }, 3200);
-  };
+  const notify = useCallback((message: string) => {
+    setToastMessage(message);
+  }, []);
 
   useEffect(() => {
-    if (!isSectionAllowedForRole(activeSection, currentUser.role)) {
-      setActiveSection('workbench');
+    if (!toastMessage) return;
+    const timer = setTimeout(() => setToastMessage(null), 3600);
+    return () => clearTimeout(timer);
+  }, [toastMessage]);
+
+  const navigateTab = useCallback((tab: Phase2Section) => {
+    setActiveTab(tab);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      window.history.replaceState({}, '', url.toString());
     }
-  }, [activeSection, currentUser.role]);
+  }, []);
 
-  const unreadDingTalkCount = state.notifications.filter((n) => !n.read).length;
+  const handleToggleKudos = useCallback(
+    async (recordId: string) => {
+      try {
+        const res = await toggleKudos(recordId);
+        if (res.ok) {
+          notify(
+            res.persisted
+              ? '已点赞致敬优秀同事并同步至云端公示台账'
+              : '已点赞致敬优秀同事'
+          );
+        }
+      } catch (err) {
+        notify(err instanceof Error ? err.message : '点赞操作未完成');
+      }
+    },
+    [notify, toggleKudos]
+  );
 
-  const isEmployeeRole = currentUser.role === 'employee';
-  const pendingCount = {
-    accountability: state.tickets.filter(
-      (t) =>
-        t.status !== 'archived' &&
-        t.status !== 'appeal_resolved' &&
-        (!isEmployeeRole ||
-          t.reporterId === currentUser.id ||
-          t.accusedEmpId === currentUser.id)
-    ).length,
-    rewards: state.rewards.filter((r) => r.status !== 'approved_archived').length,
-    appeals: state.appeals.filter(
-      (a) =>
-        a.status === 'pending_review' &&
-        (!isEmployeeRole || a.appellantId === currentUser.id)
-    ).length,
-  };
+  const handleToggleAck = useCallback(
+    async (recordId: string) => {
+      try {
+        const res = await toggleAck(recordId);
+        if (res.ok) {
+          notify(
+            res.persisted
+              ? '已标记警示复盘已阅并同步至云端台账'
+              : '已标记警示复盘已阅'
+          );
+        }
+      } catch (err) {
+        notify(err instanceof Error ? err.message : '标记已阅未完成');
+      }
+    },
+    [notify, toggleAck]
+  );
 
-  const handleJumpToRelated = (relatedNo: string) => {
-    if (relatedNo.startsWith('WZ-')) {
-      const found = state.tickets.find((t) => t.ticketNo === relatedNo);
-      if (found) setSelectedTicketId(found.id);
-      setActiveSection('accountability');
-    } else if (relatedNo.startsWith('JL-')) {
-      setActiveSection('rewards');
-    } else if (relatedNo.startsWith('SS-')) {
-      setActiveSection('appeals');
-    }
-  };
+  const handleApplyRubricToOa = useCallback(
+    (item: PolicyRubricItem) => {
+      setPrefilledRubric(item);
+      navigateTab('oa');
+      notify(`已将条款【${item.itemNo}】带入 OA 提报单`);
+    },
+    [navigateTab, notify]
+  );
+
+  const monthCounts = useMemo(() => {
+    const nov = publicityRecords.filter((r) => r.month === '2026-11');
+    return {
+      reward: nov.filter((r) => r.category === 'reward').length,
+      punishment: nov.filter((r) => r.category === 'punishment').length,
+    };
+  }, [publicityRecords]);
+
+  const navItems: {
+    id: 'publicity' | 'policy' | 'oa';
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+  }[] = [
+    { id: 'publicity', label: '奖惩公示栏', icon: BarChart2 },
+    { id: 'policy', label: '制度与规则', icon: BookOpen },
+    { id: 'oa', label: '奖惩提报与OA', icon: FilePlus2 },
+  ];
+
+  const activeSectionLabel =
+    activeTab === 'publicity'
+      ? '奖惩公示栏'
+      : activeTab === 'policy'
+      ? '制度与规则'
+      : activeTab === 'oa'
+      ? '奖惩提报与OA'
+      : '后台与钉钉';
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex">
-      {/* Desktop Sidebar */}
-      <div className="hidden lg:block sticky top-0 h-screen">
-        <Sidebar
-          activeSection={activeSection}
-          onSelectSection={setActiveSection}
-          currentUser={currentUser}
-          employees={state.employees}
-          onSwitchRole={(role) => {
-            switchRolePersona(role);
-            showToast('已切换钉钉免登身份视角');
-          }}
-          pendingCount={pendingCount}
-        />
-      </div>
-
-      {/* Mobile Sidebar Drawer */}
-      {mobileNavOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden flex">
-          <div className="relative z-10">
-            <Sidebar
-              activeSection={activeSection}
-              onSelectSection={(sec) => {
-                setActiveSection(sec);
-                setMobileNavOpen(false);
-              }}
-              currentUser={currentUser}
-              employees={state.employees}
-              onSwitchRole={(role) => {
-                switchRolePersona(role);
-                setMobileNavOpen(false);
-              }}
-              pendingCount={pendingCount}
-            />
-          </div>
+    <div className="min-h-screen text-slate-900 flex flex-col md:flex-row">
+      {/* Left Sidebar Navigation (3 Core Sections) */}
+      <aside className="hidden md:flex md:flex-col md:w-60 lg:w-64 md:shrink-0 md:sticky md:top-0 md:h-screen bg-white border-r border-slate-200/80 relative overflow-hidden">
+        {/* Sidebar Brand */}
+        <div className="h-16 px-5 flex items-center border-b border-slate-100 shrink-0">
           <button
             type="button"
-            aria-label="关闭侧边栏"
-            onClick={() => setMobileNavOpen(false)}
-            className="flex-1 bg-slate-900/40"
-          />
-        </div>
-      )}
-
-      {/* Main Content Shell */}
-      <div className="flex-1 min-w-0 flex flex-col">
-        <div className="flex items-center lg:block bg-white border-b border-slate-200 lg:border-b-0">
-          <button
-            type="button"
-            onClick={() => setMobileNavOpen(!mobileNavOpen)}
-            aria-label="切换导航菜单"
-            className="lg:hidden p-4 text-slate-700 hover:text-slate-900"
+            onClick={() => navigateTab('publicity')}
+            className="flex items-center gap-2.5 whitespace-nowrap shrink-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2F6FE4] rounded-lg"
           >
-            {mobileNavOpen ? (
-              <X className="w-5 h-5" />
-            ) : (
-              <Menu className="w-5 h-5" />
-            )}
+            <span className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#2F6FE4] to-[#1E62D0] text-white flex items-center justify-center shadow-sm shadow-[#1E62D0]/25 shrink-0">
+              <Megaphone className="w-4 h-4 -rotate-12" />
+            </span>
+            <span className="text-[15px] font-bold tracking-tight text-slate-900 whitespace-nowrap">
+              恒翼能奖惩平台
+            </span>
           </button>
-          <div className="flex-1 min-w-0">
-            <TopBar
-              activeSection={activeSection}
-              currentUserRole={currentUser.role}
-              unreadDingTalkCount={unreadDingTalkCount}
-              isResetting={isActionPending('demo:reset')}
-              onOpenDingTalk={() => setDingTalkOpen(true)}
-              onOpenShare={() => setShareModalOpen(true)}
-              onOpenNewAccountability={() => {
-                setPrefillRubric(null);
-                setNewAccModalOpen(true);
-              }}
-              onResetDemo={async () => {
-                await runGuardedAction('demo:reset', () => {
-                  resetDemoData();
-                  showToast('已恢复初始企业演示数据');
-                });
-              }}
-            />
-          </div>
         </div>
 
-        <main className="flex-1 p-5 sm:p-6 max-w-[1440px] w-full mx-auto">
-          {activeSection === 'workbench' && (
-            <WorkbenchView
-              currentUser={currentUser}
-              tickets={state.tickets}
-              rewards={state.rewards}
-              appeals={state.appeals}
-              departments={state.departments}
-              policyGrades={state.policyGrades}
-              auditLogs={state.auditLogs}
-              getDisplayReporterName={getDisplayReporterName}
-              isActionPending={isActionPending}
-              onNavigate={setActiveSection}
-              onOpenTicket={(id) => {
-                setSelectedTicketId(id);
-                setActiveSection('accountability');
-              }}
-              onOpenNewAccountability={() => {
-                setPrefillRubric(null);
-                setNewAccModalOpen(true);
-              }}
-              onUrgeTicket={async (id) => {
-                await runGuardedAction(`ticket:urge:${id}`, () => {
-                  const ok = urgeOrEscalateTicket(id, false);
-                  showToast(
-                    ok
-                      ? '已推送钉钉人工催办消息卡片'
-                      : '当前节点已催办过，请等待流转后再催办'
-                  );
-                });
-              }}
+        {/* 3 Primary Navigation Items */}
+        <nav aria-label="主导航" className="flex-1 px-3 py-5 space-y-1.5 relative z-10">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => navigateTab(item.id)}
+                className={`relative w-full h-11 px-3.5 rounded-xl text-[13.5px] flex items-center gap-3 whitespace-nowrap transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2F6FE4] ${
+                  active
+                    ? 'bg-[#EBF3FF] text-[#1E62D0] font-semibold'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 font-medium'
+                }`}
+              >
+                {active && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-[#2F6FE4]"
+                  />
+                )}
+                <Icon
+                  className={`w-4 h-4 shrink-0 ${
+                    active ? 'text-[#1E62D0]' : 'text-slate-500'
+                  }`}
+                />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Subtle Atmospheric Bottom Skyline Graphic */}
+        <div className="relative mt-auto pt-12 pb-4 px-5 shrink-0">
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 260 150"
+            className="pointer-events-none absolute inset-x-0 bottom-0 w-full h-36 opacity-80"
+            fill="none"
+            preserveAspectRatio="none"
+          >
+            <path
+              d="M0 120C55 98 115 135 185 110C220 98 242 102 260 108V150H0V120Z"
+              fill="url(#sidebarWave)"
+            />
+            <rect x="24" y="68" width="38" height="62" rx="3" fill="#E0ECFF" />
+            <rect x="70" y="42" width="48" height="88" rx="3" fill="#CFE2FF" />
+            <rect x="126" y="76" width="34" height="54" rx="3" fill="#E0ECFF" />
+            <path
+              d="M0 132C70 118 145 145 260 116V150H0V132Z"
+              fill="#60A5FA"
+              fillOpacity="0.22"
+            />
+            <defs>
+              <linearGradient id="sidebarWave" x1="0" y1="90" x2="260" y2="150" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#EFF6FF" />
+                <stop offset="1" stopColor="#DBEAFE" />
+              </linearGradient>
+            </defs>
+          </svg>
+          <div className="relative z-10 text-[11px] font-medium text-slate-500 leading-snug">
+            广东恒翼能科技股份有限公司
+          </div>
+        </div>
+      </aside>
+
+      {/* Right Workspace Column */}
+      <div className="flex-1 min-w-0 flex flex-col min-h-screen">
+        {/* Top Utility & Breadcrumb Header */}
+        <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-[0_1px_3px_rgba(15,23,42,0.03)]">
+          <div className="max-w-[1320px] mx-auto px-4 sm:px-7 h-16 flex items-center justify-between gap-6">
+            {/* Left: Mobile Brand / Desktop Breadcrumb */}
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                type="button"
+                onClick={() => navigateTab('publicity')}
+                className="md:hidden flex items-center gap-2 whitespace-nowrap shrink-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2F6FE4] rounded-lg"
+              >
+                <span className="w-7 h-7 rounded-lg bg-gradient-to-tr from-[#2F6FE4] to-[#1E62D0] text-white flex items-center justify-center shrink-0">
+                  <Megaphone className="w-3.5 h-3.5 -rotate-12" />
+                </span>
+                <span className="text-sm font-bold tracking-tight text-slate-900">
+                  恒翼能奖惩平台
+                </span>
+              </button>
+
+              <div className="hidden md:flex items-center gap-1.5 text-xs text-slate-500 whitespace-nowrap">
+                <span className="font-medium text-slate-500">
+                  恒翼能奖惩公示与 OA 协同平台
+                </span>
+                <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                <span className="font-semibold text-slate-900">
+                  {activeSectionLabel}
+                </span>
+              </div>
+            </div>
+
+            {/* Right: Share & Account Controls */}
+            <div className="flex items-center gap-2.5 shrink-0">
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => navigateTab(activeTab === 'admin' ? 'publicity' : 'admin')}
+                  title="后台审批与钉钉管理"
+                  aria-label="后台审批与钉钉管理"
+                  className={`p-2 rounded-xl border transition-colors ${
+                    activeTab === 'admin'
+                      ? 'bg-[#EEF5FF] border-[#BFD8FD] text-[#1E62D0]'
+                      : 'bg-white border-slate-200 text-slate-600 hover:border-[#2F6FE4]/40 hover:text-[#1E62D0]'
+                  }`}
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setShareModalOpen(true)}
+                className="px-3.5 py-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:border-[#2F6FE4]/40 hover:text-[#1E62D0] hover:bg-[#EEF5FF]/60 rounded-xl inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors"
+              >
+                <Share2 className="w-3.5 h-3.5 text-[#1E62D0]" />
+                <span className="hidden sm:inline">分享公布</span>
+              </button>
+
+              {user ? (
+                <div className="flex items-center gap-2 pl-2.5 border-l border-slate-200">
+                  <div className="hidden sm:block text-right">
+                    <div className="text-xs font-semibold text-slate-900 max-w-[130px] truncate">
+                      {user.displayName || user.email?.split('@')[0]}
+                    </div>
+                    <div className="text-[11px] text-slate-500 whitespace-nowrap">
+                      {isAdmin ? '管理员权限' : '在职员工'}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => signOutUser()}
+                    title="退出登录"
+                    aria-label="退出登录"
+                    className="p-2 text-slate-500 hover:text-slate-900 border border-slate-200 hover:border-slate-300 rounded-xl bg-white transition-colors"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => signInWithGoogle()}
+                  disabled={busyAction === 'auth'}
+                  className="btn-brand px-4 py-2 text-xs font-medium rounded-xl inline-flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>{busyAction === 'auth' ? '登录中...' : '员工登录'}</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Mobile 3-Item Nav Strip */}
+          <div className="md:hidden border-t border-slate-100 px-3 py-1.5 flex items-center gap-1.5 overflow-x-auto bg-white/95">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const active = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => navigateTab(item.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors ${
+                    active
+                      ? 'bg-[#EEF5FF] text-[#1E62D0] font-semibold'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <main className="flex-1 max-w-[1320px] w-full mx-auto px-4 sm:px-7 py-5 sm:py-6">
+          <div key={activeTab} className="animate-panel-in">
+          {activeTab === 'publicity' && (
+            <MonthlyPublicityBoard
+              records={publicityRecords}
+              localKudosVotedIds={localKudosVotedIds}
+              localAckVotedIds={localAckVotedIds}
+              onToggleKudos={handleToggleKudos}
+              onToggleAck={handleToggleAck}
+              onNavigate={navigateTab}
             />
           )}
 
-          {activeSection === 'publicity' && (
-            <PublicityBoardView
-              currentUser={currentUser}
-              departments={state.departments}
-              tickets={state.tickets}
-              rewards={state.rewards}
-              onNavigate={setActiveSection}
+          {activeTab === 'policy' && (
+            <PolicyLearningCenter onApplyRubricToOa={handleApplyRubricToOa} />
+          )}
+
+          {activeTab === 'oa' && (
+            <OaSubmissionPortal
+              user={user}
+              dingtalkMembers={dingtalkMembers}
+              dingtalkStatus={dingtalkStatus}
+              prefilledRubric={prefilledRubric}
+              busyAction={busyAction}
+              onClearPrefill={() => setPrefilledRubric(null)}
+              onSignIn={signInWithGoogle}
+              onSubmitMultiOa={submitMultiOaApplications}
+              onNotify={notify}
             />
           )}
 
-          {activeSection === 'analytics' && (
-            <GovernanceAnalyticsView
-              tickets={state.tickets}
-              rewards={state.rewards}
-              appeals={state.appeals}
-              departments={state.departments}
-              policyGrades={state.policyGrades}
-              auditLogs={state.auditLogs}
-              onOpenTicket={(id) => {
-                setSelectedTicketId(id);
-                setActiveSection('accountability');
-              }}
-              onNavigateRewards={() => setActiveSection('rewards')}
+          {activeTab === 'admin' && (
+            <AdminOaConsole
+              user={user}
+              isAdmin={isAdmin}
+              publicityFromDb={publicityFromDb}
+              directoryFromDb={directoryFromDb}
+              dingtalkStatus={dingtalkStatus}
+              dingtalkMembers={dingtalkMembers}
+              oaSubmissions={oaSubmissions}
+              busyAction={busyAction}
+              onSignIn={signInWithGoogle}
+              onSeedDefaults={seedDatabaseDefaults}
+              onSyncDingTalk={syncDingTalkDirectory}
+              onAddMember={addDingTalkMember}
+              onAdvanceOa={advanceOaSubmission}
+              onNotify={notify}
             />
           )}
-
-          {activeSection === 'accountability' && (
-            <AccountabilityView
-              currentUser={currentUser}
-              tickets={state.tickets}
-              departments={state.departments}
-              policyGrades={state.policyGrades}
-              selectedTicketId={selectedTicketId}
-              onSelectTicket={setSelectedTicketId}
-              onOpenNewModal={() => {
-                setPrefillRubric(null);
-                setNewAccModalOpen(true);
-              }}
-              canRevealConfidentialIdentity={canRevealConfidentialIdentity}
-              revealedConfidentialTicketIds={state.revealedConfidentialTicketIds}
-              getDisplayReporterName={getDisplayReporterName}
-              isActionPending={isActionPending}
-              onRevealConfidential={async (id, purpose) => {
-                await runGuardedAction(`ticket:reveal:${id}`, () => {
-                  revealConfidentialReporter(id, purpose);
-                  showToast('已解密提报人真实身份并写入强审计日志');
-                });
-              }}
-              onConfirmDept={async (id, side, hasDispute, comment) => {
-                await runGuardedAction(`ticket:confirm:${id}:${side}`, () => {
-                  confirmDepartmentSide(id, side, hasDispute, comment);
-                  showToast(
-                    hasDispute ? '已标记争议，工单自动转入 ER 调查' : '部门确认已完成'
-                  );
-                });
-              }}
-              onSubmitStatement={async (id, agrees, text, counterEv) => {
-                await runGuardedAction(`ticket:statement:${id}`, () => {
-                  submitRespondentStatement(id, agrees, text, counterEv);
-                  showToast(
-                    agrees ? '陈述已提交（认同事实）' : '已提交异议陈述，工单转入 ER 调查'
-                  );
-                });
-              }}
-              onErIntervene={async (id, reason) => {
-                await runGuardedAction(`ticket:er_intervene:${id}`, () => {
-                  triggerErProactiveIntervention(id, reason);
-                  showToast('HR（ER）已主动抽查介入调查');
-                });
-              }}
-              onExecuteOrEscalate={async (id, payload) => {
-                await runGuardedAction(`ticket:execute:${id}`, () => {
-                  executeOrEscalateTicket(id, payload);
-                  showToast('工单定级/上报处理已提交');
-                });
-              }}
-              onExecutiveDecide={async (id, note, summary) => {
-                await runGuardedAction(`ticket:exec_decide:${id}`, () => {
-                  executiveDecideTicket(id, note, summary);
-                  showToast('终审裁决已签署并归档生效');
-                });
-              }}
-              onUrgeOrEscalate={async (id, manualEsc) => {
-                const actionKey = manualEsc
-                  ? `ticket:escalate:${id}`
-                  : `ticket:urge:${id}`;
-                await runGuardedAction(actionKey, () => {
-                  const ok = urgeOrEscalateTicket(id, manualEsc);
-                  showToast(
-                    ok
-                      ? manualEsc
-                        ? '已手动升级督办并发送钉钉通知'
-                        : '已发送钉钉人工催办提醒'
-                      : manualEsc
-                      ? '该工单已升级督办，请勿重复操作'
-                      : '当前节点已催办过，请等待流转至下一节点后再催办'
-                  );
-                });
-              }}
-              onSubmitAppeal={async (payload) => {
-                const ok = await runGuardedAction(
-                  `ticket:appeal:${payload.ticketId}`,
-                  () => submitAppeal(payload)
-                );
-                if (ok) {
-                  setActiveSection('appeals');
-                  showToast('在线申诉已提交至复核中心');
-                } else if (ok === false) {
-                  showToast('仅被问责人本人可对已归档工单发起申诉');
-                }
-                return Boolean(ok);
-              }}
-              onSwitchEmployee={(empId) => {
-                switchEmployeeById(empId);
-                showToast('已切换演示员工身份视角');
-              }}
-            />
-          )}
-
-          {activeSection === 'rewards' && (
-            <RewardsView
-              currentUser={currentUser}
-              employees={state.employees}
-              policyGrades={state.policyGrades}
-              rewards={state.rewards}
-              initialRubric={prefillRewardRubric}
-              onClearInitialRubric={() => setPrefillRewardRubric(null)}
-              isActionPending={isActionPending}
-              onSubmitReward={async (payload) => {
-                await runGuardedAction('reward:create', () => {
-                  submitRewardNomination(payload);
-                  showToast('M8+ 奖励表彰申报单已提交');
-                });
-              }}
-              onAdvanceReward={async (id) => {
-                await runGuardedAction(`reward:advance:${id}`, () => {
-                  advanceRewardStatus(id);
-                  showToast('奖励表彰审批节点已推进');
-                });
-              }}
-              onUrgeReward={async (id) => {
-                await runGuardedAction(`reward:urge:${id}`, () => {
-                  const ok = urgeReward(id);
-                  showToast(
-                    ok
-                      ? '已推送奖励审批钉钉催办卡片'
-                      : '当前审批节点已催办过，请等待流转后再催办'
-                  );
-                });
-              }}
-            />
-          )}
-
-          {activeSection === 'appeals' && (
-            <AppealsAndPublicityView
-              currentUser={currentUser}
-              appeals={state.appeals}
-              tickets={state.tickets}
-              rewards={state.rewards}
-              policyGrades={state.policyGrades}
-              isActionPending={isActionPending}
-              onSubmitAppeal={async (payload) => {
-                const ok = await runGuardedAction(
-                  `appeal:create:${payload.ticketId}`,
-                  () => submitAppeal(payload)
-                );
-                if (ok !== undefined) {
-                  showToast(
-                    ok
-                      ? '在线申诉已提交至复核中心'
-                      : '仅被问责人本人可对已归档工单发起申诉'
-                  );
-                }
-              }}
-              onDecideAppeal={async (id, outcome, note, gradeId) => {
-                await runGuardedAction(`appeal:decide:${id}`, () => {
-                  decideAppeal(id, outcome, note, gradeId);
-                  showToast('申诉复核裁决已生效并同步更新员工档案');
-                });
-              }}
-              onSwitchEmployee={(empId) => {
-                switchEmployeeById(empId);
-                showToast('已切换演示员工身份视角');
-              }}
-              onNavigatePublicity={() => setActiveSection('publicity')}
-            />
-          )}
-
-          {activeSection === 'archives' && (
-            <ArchivesAndAuditView
-              currentUser={currentUser}
-              employees={state.employees}
-              departments={state.departments}
-              tickets={state.tickets}
-              rewards={state.rewards}
-              auditLogs={state.auditLogs}
-            />
-          )}
-
-          {activeSection === 'standards' && (
-            <PolicyStandardsView
-              currentUser={currentUser}
-              employees={state.employees}
-              tickets={state.tickets}
-              rewards={state.rewards}
-              onStartAccountabilityFromRubric={(rubric) => {
-                setPrefillRubric(rubric);
-                setNewAccModalOpen(true);
-              }}
-              onStartRewardFromRubric={(rubric) => {
-                setPrefillRewardRubric(rubric);
-                setActiveSection('rewards');
-                const hasM8 =
-                  currentUser.isM8Plus ||
-                  currentUser.role === 'm8_plus' ||
-                  currentUser.role === 'hrd' ||
-                  currentUser.role === 'executive';
-                if (!hasM8) {
-                  showToast(
-                    '已带入表彰标尺跳转奖励表彰页；当前职级无 M8+ 提报权，可在左下角切换 M8+ 视角发起申报'
-                  );
-                }
-              }}
-            />
-          )}
-
-          {activeSection === 'admin' && (
-            <PolicyAndAdminView
-              currentUser={currentUser}
-              policyGrades={state.policyGrades}
-              employees={state.employees}
-              departments={state.departments}
-              tickets={state.tickets}
-              rewards={state.rewards}
-              isActionPending={isActionPending}
-              onUpdatePolicyGrade={async (g) => {
-                await runGuardedAction(`policy:update:${g.id}`, () => {
-                  updatePolicyGrade(g);
-                  showToast(`已更新制度参数：${g.name}`);
-                });
-              }}
-              onImportEmployees={async (emps) => {
-                await runGuardedAction('org:import', () => {
-                  importEmployees(emps);
-                  showToast(`已更新组织花名册（+${emps.length}）`);
-                });
-              }}
-              onToggleEmployeeTag={async (empId, field) => {
-                await runGuardedAction(`org:tag:${empId}:${field}`, () => {
-                  toggleEmployeeTag(empId, field);
-                  showToast('已更新员工权限标签并记录审计日志');
-                });
-              }}
-              onRecordPayrollExport={async (count, month) => {
-                await runGuardedAction('payroll:export', () => {
-                  recordPayrollExport(count, month);
-                  showToast(`已导出 ${month} 算薪执行明细 CSV`);
-                });
-              }}
-            />
-          )}
+          </div>
         </main>
+
+        {/* Footer */}
+        <footer className="border-t border-slate-200/80 bg-white/80">
+          <div className="max-w-[1320px] mx-auto px-4 sm:px-7 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+            <div>广东恒翼能科技股份有限公司 · 奖惩公示与钉钉 OA 协同平台（二期）</div>
+            <div>全员透明公开 · 制度量化引导 · 钉钉审核/抄送/归档闭环</div>
+          </div>
+        </footer>
       </div>
 
-      {/* Drawers & Modals */}
-      <DingTalkDrawer
-        open={dingTalkOpen}
-        onClose={() => setDingTalkOpen(false)}
-        notifications={state.notifications}
-        isMarkingRead={isActionPending('notif:mark_read')}
-        onMarkAllRead={async () => {
-          await runGuardedAction('notif:mark_read', () => {
-            markAllNotificationsRead();
-          });
-        }}
-        onJumpToRelated={handleJumpToRelated}
-      />
-
-      <NewAccountabilityModal
-        open={newAccModalOpen}
-        onClose={() => {
-          setNewAccModalOpen(false);
-          setPrefillRubric(null);
-        }}
-        currentUser={currentUser}
-        employees={state.employees}
-        departments={state.departments}
-        initialRubric={prefillRubric}
-        isSubmitting={isActionPending('ticket:create')}
-        onSubmit={async (payload) => {
-          await runGuardedAction('ticket:create', () => {
-            submitAccountabilityTicket(payload);
-            setActiveSection('accountability');
-            showToast('问责工单已提交并推送钉钉待办');
-          });
-        }}
-      />
-
+      {/* Share & Publish Modal */}
       <SharePublishModal
         open={shareModalOpen}
         onClose={() => setShareModalOpen(false)}
-        activeSection={activeSection}
-        currentUserRole={currentUser.role}
-        monthRewardCount={
-          state.rewards.filter(
-            (r) =>
-              r.status === 'approved_archived' &&
-              (r.approvedAt || r.createdAt).startsWith('2026-11')
-          ).length
-        }
-        monthPunishmentCount={
-          state.tickets.filter(
-            (t) =>
-              (t.status === 'archived' ||
-                t.status === 'appealing' ||
-                t.status === 'appeal_resolved') &&
-              t.execution &&
-              t.execution.gradeName !== '已撤销处分' &&
-              (t.archivedAt || t.updatedAt).startsWith('2026-11')
-          ).length
-        }
-        onCopied={showToast}
+        activeSection={activeTab}
+        monthRewardCount={monthCounts.reward}
+        monthPunishmentCount={monthCounts.punishment}
+        onCopied={notify}
       />
 
-      {/* Non-intrusive bottom-right toast feedback */}
+      {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-5 right-5 z-50 px-4 py-2.5 bg-slate-900 text-white text-xs font-medium rounded-lg shadow-lg border border-slate-700">
-          {toastMessage}
+        <div
+          role="status"
+          className="fixed bottom-5 right-5 z-50 bg-slate-900 text-white text-xs px-4 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 max-w-md border border-slate-800"
+        >
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span className="leading-relaxed">{toastMessage}</span>
         </div>
       )}
     </div>
   );
 }
+
+export default App;
