@@ -1,0 +1,324 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Startup connection check document
+    match /test/connection {
+      allow get: if true;
+      allow list, write: if false;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isEmailAdmin() {
+      return isVerifiedUser() && request.auth.token.email == '1341646817@qq.com';
+    }
+
+    function isAdmin() {
+      return isEmailAdmin() ||
+        (isVerifiedUser() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidPublicityRecord(data) {
+      return data.keys().hasAll([
+          'recordNo', 'month', 'category', 'title', 'employeeName',
+          'departmentName', 'gradeName', 'points', 'summary', 'isPublished',
+          'kudosCount', 'ackCount', 'authorUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'recordNo', 'month', 'category', 'title', 'employeeName',
+          'departmentName', 'gradeName', 'points', 'summary', 'lessonOrHighlight',
+          'dingtalkApproverName', 'dingtalkExecutorName', 'isPublished',
+          'kudosCount', 'ackCount', 'authorUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.recordNo is string && data.recordNo.size() >= 2 && data.recordNo.size() <= 40 && data.recordNo.matches('^[A-Z0-9\\-]+$') &&
+        data.month is string && data.month.size() == 7 && data.month.matches('^\\d{4}-\\d{2}$') &&
+        data.category in ['reward', 'punishment'] &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 160 &&
+        data.employeeName is string && data.employeeName.size() >= 1 && data.employeeName.size() <= 60 &&
+        data.departmentName is string && data.departmentName.size() >= 1 && data.departmentName.size() <= 80 &&
+        data.gradeName is string && data.gradeName.size() >= 1 && data.gradeName.size() <= 40 &&
+        data.points is number && data.points >= -100 && data.points <= 100 &&
+        data.summary is string && data.summary.size() >= 1 && data.summary.size() <= 800 &&
+        (!('lessonOrHighlight' in data) || (data.lessonOrHighlight is string && data.lessonOrHighlight.size() <= 500)) &&
+        (!('dingtalkApproverName' in data) || (data.dingtalkApproverName is string && data.dingtalkApproverName.size() <= 60)) &&
+        (!('dingtalkExecutorName' in data) || (data.dingtalkExecutorName is string && data.dingtalkExecutorName.size() <= 60)) &&
+        data.isPublished is bool &&
+        data.kudosCount is int && data.kudosCount >= 0 && data.kudosCount <= 1000000 &&
+        data.ackCount is int && data.ackCount >= 0 && data.ackCount <= 1000000 &&
+        isValidId(data.authorUid) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidPolicyDoc(data) {
+      return data.keys().hasAll([
+          'code', 'title', 'category', 'summary', 'content',
+          'orderIndex', 'isPublished', 'updatedByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'code', 'title', 'category', 'summary', 'content',
+          'orderIndex', 'isPublished', 'updatedByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.code is string && data.code.size() >= 1 && data.code.size() <= 32 && data.code.matches('^[A-Z0-9\\-_]+$') &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 160 &&
+        data.category is string && data.category.size() >= 1 && data.category.size() <= 60 &&
+        data.summary is string && data.summary.size() >= 1 && data.summary.size() <= 600 &&
+        data.content is string && data.content.size() >= 1 && data.content.size() <= 4000 &&
+        data.orderIndex is int && data.orderIndex >= 0 && data.orderIndex <= 500 &&
+        data.isPublished is bool &&
+        isValidId(data.updatedByUid) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidLearningRecord(data) {
+      return data.keys().hasAll([
+          'userUid', 'learnerName', 'completedModuleIds', 'quizScore', 'quizPassed', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'userUid', 'learnerName', 'completedModuleIds', 'quizScore', 'quizPassed', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.userUid) &&
+        data.learnerName is string && data.learnerName.size() >= 1 && data.learnerName.size() <= 60 &&
+        data.completedModuleIds is list && data.completedModuleIds.size() <= 30 &&
+        (data.completedModuleIds.size() == 0 || data.completedModuleIds[0] is string) &&
+        data.quizScore is int && data.quizScore >= 0 && data.quizScore <= 100 &&
+        data.quizPassed is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidOaSubmission(data) {
+      return data.keys().hasAll([
+          'submissionNo', 'category', 'title', 'targetDingtalkUserId', 'targetName',
+          'targetDeptName', 'gradeName', 'points', 'factDescription', 'publicityMode',
+          'isConfidential', 'approverDingtalkUserId', 'approverName',
+          'executorDingtalkUserId', 'executorName', 'ccNames', 'status',
+          'dingtalkSyncStatus', 'submitterName', 'authorUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'submissionNo', 'category', 'title', 'targetDingtalkUserId', 'targetName',
+          'targetDeptName', 'rubricCode', 'gradeName', 'points', 'factDescription',
+          'evidenceName', 'publicityMode', 'isConfidential', 'approverDingtalkUserId',
+          'approverName', 'executorDingtalkUserId', 'executorName', 'ccNames',
+          'status', 'dingtalkSyncStatus', 'dingtalkProcessInstanceId', 'reviewNote',
+          'submitterName', 'authorUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.submissionNo is string && data.submissionNo.size() >= 2 && data.submissionNo.size() <= 40 && data.submissionNo.matches('^[A-Z0-9\\-]+$') &&
+        data.category in ['reward', 'punishment'] &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 160 &&
+        isValidId(data.targetDingtalkUserId) &&
+        data.targetName is string && data.targetName.size() >= 1 && data.targetName.size() <= 60 &&
+        data.targetDeptName is string && data.targetDeptName.size() >= 1 && data.targetDeptName.size() <= 80 &&
+        (!('rubricCode' in data) || (data.rubricCode is string && data.rubricCode.size() <= 40)) &&
+        data.gradeName is string && data.gradeName.size() >= 1 && data.gradeName.size() <= 40 &&
+        data.points is number && data.points >= -100 && data.points <= 100 &&
+        data.factDescription is string && data.factDescription.size() >= 1 && data.factDescription.size() <= 1500 &&
+        (!('evidenceName' in data) || (data.evidenceName is string && data.evidenceName.size() <= 200)) &&
+        data.publicityMode in ['all_staff_public', 'desensitized_warning', 'dept_only'] &&
+        data.isConfidential is bool &&
+        isValidId(data.approverDingtalkUserId) &&
+        data.approverName is string && data.approverName.size() >= 1 && data.approverName.size() <= 60 &&
+        isValidId(data.executorDingtalkUserId) &&
+        data.executorName is string && data.executorName.size() >= 1 && data.executorName.size() <= 60 &&
+        data.ccNames is list && data.ccNames.size() <= 20 &&
+        (data.ccNames.size() == 0 || data.ccNames[0] is string) &&
+        data.status in ['pending_approval', 'pending_execution', 'executed_published', 'rejected'] &&
+        data.dingtalkSyncStatus in ['synced_live', 'queued_sandbox', 'pending'] &&
+        (!('dingtalkProcessInstanceId' in data) || (data.dingtalkProcessInstanceId is string && data.dingtalkProcessInstanceId.size() <= 120)) &&
+        (!('reviewNote' in data) || (data.reviewNote is string && data.reviewNote.size() <= 600)) &&
+        data.submitterName is string && data.submitterName.size() >= 1 && data.submitterName.size() <= 60 &&
+        isValidId(data.authorUid) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidDingTalkMember(data) {
+      return data.keys().hasAll([
+          'dingtalkUserId', 'empNo', 'name', 'deptName', 'title',
+          'oaRoleTag', 'isActive', 'updatedByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'dingtalkUserId', 'empNo', 'name', 'deptName', 'title',
+          'oaRoleTag', 'isActive', 'updatedByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.dingtalkUserId) &&
+        data.empNo is string && data.empNo.size() >= 1 && data.empNo.size() <= 32 &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 60 &&
+        data.deptName is string && data.deptName.size() >= 1 && data.deptName.size() <= 80 &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 80 &&
+        data.oaRoleTag in ['staff', 'approver', 'executor', 'cc_default'] &&
+        data.isActive is bool &&
+        isValidId(data.updatedByUid) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidAdminUser(data) {
+      return data.keys().hasAll(['role', 'createdAt']) &&
+        data.keys().hasOnly(['role', 'createdAt']) &&
+        data.role == 'admin' &&
+        data.createdAt is timestamp;
+    }
+
+    match /publicity_records/{recordId} {
+      allow get: if isValidId(recordId) && (existing().isPublished == true || isAdmin());
+      allow list: if resource.data.isPublished == true || isEmailAdmin();
+      allow create: if isValidId(recordId) && isAdmin() &&
+        isValidPublicityRecord(incoming()) &&
+        incoming().authorUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(recordId) && isValidPublicityRecord(incoming()) &&
+        incoming().authorUid == existing().authorUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isAdmin() ||
+          (
+            isVerifiedUser() && existing().isPublished == true && (
+              (incoming().diff(existing()).affectedKeys().hasOnly(['kudosCount', 'updatedAt']) &&
+                incoming().kudosCount == existing().kudosCount + 1) ||
+              (incoming().diff(existing()).affectedKeys().hasOnly(['ackCount', 'updatedAt']) &&
+                incoming().ackCount == existing().ackCount + 1)
+            )
+          )
+        );
+      allow delete: if isValidId(recordId) && isAdmin();
+    }
+
+    match /policy_docs/{policyId} {
+      allow get: if isValidId(policyId) && (existing().isPublished == true || isAdmin());
+      allow list: if resource.data.isPublished == true || isEmailAdmin();
+      allow create: if isValidId(policyId) && isAdmin() &&
+        isValidPolicyDoc(incoming()) &&
+        incoming().updatedByUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(policyId) && isAdmin() &&
+        isValidPolicyDoc(incoming()) &&
+        incoming().updatedByUid == request.auth.uid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time;
+      allow delete: if isValidId(policyId) && isAdmin();
+    }
+
+    match /learning_records/{recordId} {
+      allow get: if isValidId(recordId) && isVerifiedUser() &&
+        (existing().userUid == request.auth.uid || isAdmin());
+      allow list: if isVerifiedUser() &&
+        (resource.data.userUid == request.auth.uid || isEmailAdmin());
+      allow create: if isValidId(recordId) && isVerifiedUser() &&
+        isValidLearningRecord(incoming()) &&
+        incoming().userUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(recordId) && isVerifiedUser() &&
+        isValidLearningRecord(incoming()) &&
+        existing().userUid == request.auth.uid &&
+        incoming().userUid == existing().userUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'learnerName', 'completedModuleIds', 'quizScore', 'quizPassed', 'updatedAt'
+        ]);
+      allow delete: if isValidId(recordId) && isAdmin();
+    }
+
+    match /oa_submissions/{submissionId} {
+      allow get: if isValidId(submissionId) && isVerifiedUser() &&
+        (existing().authorUid == request.auth.uid || isAdmin());
+      allow list: if isVerifiedUser() &&
+        (resource.data.authorUid == request.auth.uid || isEmailAdmin());
+      allow create: if isValidId(submissionId) && isVerifiedUser() &&
+        isValidOaSubmission(incoming()) &&
+        incoming().authorUid == request.auth.uid &&
+        incoming().status == 'pending_approval' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(submissionId) && isVerifiedUser() &&
+        isValidOaSubmission(incoming()) &&
+        incoming().authorUid == existing().authorUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isAdmin() ||
+          (
+            existing().authorUid == request.auth.uid &&
+            existing().status == 'pending_approval' &&
+            incoming().status == 'pending_approval' &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'dingtalkSyncStatus', 'dingtalkProcessInstanceId', 'updatedAt'
+            ])
+          ) ||
+          (
+            existing().authorUid == request.auth.uid &&
+            existing().status == 'rejected' &&
+            incoming().status == 'pending_approval' &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'category', 'title', 'targetDingtalkUserId', 'targetName',
+              'targetDeptName', 'rubricCode', 'gradeName', 'points',
+              'factDescription', 'evidenceName', 'publicityMode',
+              'isConfidential', 'approverDingtalkUserId', 'approverName',
+              'executorDingtalkUserId', 'executorName', 'ccNames',
+              'status', 'dingtalkSyncStatus', 'dingtalkProcessInstanceId', 'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isValidId(submissionId) && isAdmin();
+    }
+
+    match /dingtalk_directory/{memberId} {
+      allow get: if isValidId(memberId) && isVerifiedUser() &&
+        (existing().isActive == true || isAdmin());
+      allow list: if isVerifiedUser() &&
+        (resource.data.isActive == true || isEmailAdmin());
+      allow create: if isValidId(memberId) && isAdmin() &&
+        isValidDingTalkMember(incoming()) &&
+        incoming().updatedByUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(memberId) && isAdmin() &&
+        isValidDingTalkMember(incoming()) &&
+        incoming().updatedByUid == request.auth.uid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time;
+      allow delete: if isValidId(memberId) && isAdmin();
+    }
+
+    match /admins/{uid} {
+      allow get: if isValidId(uid) && isVerifiedUser() &&
+        (request.auth.uid == uid || isAdmin());
+      allow list: if false;
+      allow create: if isValidId(uid) && isAdmin() &&
+        isValidAdminUser(incoming()) &&
+        incoming().createdAt == request.time;
+      allow update: if isValidId(uid) && isAdmin() &&
+        isValidAdminUser(incoming()) &&
+        incoming().createdAt == existing().createdAt;
+      allow delete: if isValidId(uid) && isAdmin();
+    }
+  }
+}
