@@ -1,0 +1,439 @@
+{
+  "entities": {
+    "PublicityRecord": {
+      "title": "PublicityRecord",
+      "description": "Company-wide monthly honor commendation or disciplinary warning record published on the bulletin board (no private PII).",
+      "type": "object",
+      "properties": {
+        "recordNo": {
+          "type": "string",
+          "maxLength": 40,
+          "pattern": "^[A-Z0-9\\-]+$"
+        },
+        "month": {
+          "type": "string",
+          "maxLength": 7,
+          "pattern": "^\\d{4}-\\d{2}$"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["reward", "punishment"]
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "employeeName": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "departmentName": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "gradeName": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "points": {
+          "type": "number"
+        },
+        "summary": {
+          "type": "string",
+          "maxLength": 800
+        },
+        "lessonOrHighlight": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "dingtalkApproverName": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "dingtalkExecutorName": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "isPublished": {
+          "type": "boolean"
+        },
+        "kudosCount": {
+          "type": "integer"
+        },
+        "ackCount": {
+          "type": "integer"
+        },
+        "authorUid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "recordNo",
+        "month",
+        "category",
+        "title",
+        "employeeName",
+        "departmentName",
+        "gradeName",
+        "points",
+        "summary",
+        "isPublished",
+        "kudosCount",
+        "ackCount",
+        "authorUid",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PolicyDoc": {
+      "title": "PolicyDoc",
+      "description": "Published company policy module and point tier rules for employee learning.",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "maxLength": 32,
+          "pattern": "^[A-Z0-9\\-_]+$"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "category": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "summary": {
+          "type": "string",
+          "maxLength": 600
+        },
+        "content": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "orderIndex": {
+          "type": "integer"
+        },
+        "isPublished": {
+          "type": "boolean"
+        },
+        "updatedByUid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "code",
+        "title",
+        "category",
+        "summary",
+        "content",
+        "orderIndex",
+        "isPublished",
+        "updatedByUid",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "LearningRecord": {
+      "title": "LearningRecord",
+      "description": "Authenticated employee policy learning progress and quiz result.",
+      "type": "object",
+      "properties": {
+        "userUid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "learnerName": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "completedModuleIds": {
+          "type": "array"
+        },
+        "quizScore": {
+          "type": "integer"
+        },
+        "quizPassed": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "userUid",
+        "learnerName",
+        "completedModuleIds",
+        "quizScore",
+        "quizPassed",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "OaSubmission": {
+      "title": "OaSubmission",
+      "description": "Reward or punishment submission persisted to Firestore and linked with DingTalk OA workflow participants.",
+      "type": "object",
+      "properties": {
+        "submissionNo": {
+          "type": "string",
+          "maxLength": 40,
+          "pattern": "^[A-Z0-9\\-]+$"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["reward", "punishment"]
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "targetDingtalkUserId": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "targetName": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "targetDeptName": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "rubricCode": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "gradeName": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "points": {
+          "type": "number"
+        },
+        "factDescription": {
+          "type": "string",
+          "maxLength": 1500
+        },
+        "evidenceName": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "publicityMode": {
+          "type": "string",
+          "enum": ["all_staff_public", "desensitized_warning", "dept_only"]
+        },
+        "isConfidential": {
+          "type": "boolean"
+        },
+        "approverDingtalkUserId": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "approverName": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "executorDingtalkUserId": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "executorName": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "ccNames": {
+          "type": "array"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending_approval", "pending_execution", "executed_published", "rejected"]
+        },
+        "dingtalkSyncStatus": {
+          "type": "string",
+          "enum": ["synced_live", "queued_sandbox", "pending"]
+        },
+        "dingtalkProcessInstanceId": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "reviewNote": {
+          "type": "string",
+          "maxLength": 600
+        },
+        "submitterName": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "authorUid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "submissionNo",
+        "category",
+        "title",
+        "targetDingtalkUserId",
+        "targetName",
+        "targetDeptName",
+        "gradeName",
+        "points",
+        "factDescription",
+        "publicityMode",
+        "isConfidential",
+        "approverDingtalkUserId",
+        "approverName",
+        "executorDingtalkUserId",
+        "executorName",
+        "ccNames",
+        "status",
+        "dingtalkSyncStatus",
+        "submitterName",
+        "authorUid",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "DingTalkMember": {
+      "title": "DingTalkMember",
+      "description": "Synced DingTalk corporate directory entry used for OA approver/executor/CC selection.",
+      "type": "object",
+      "properties": {
+        "dingtalkUserId": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "empNo": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "deptName": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "oaRoleTag": {
+          "type": "string",
+          "enum": ["staff", "approver", "executor", "cc_default"]
+        },
+        "isActive": {
+          "type": "boolean"
+        },
+        "updatedByUid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "dingtalkUserId",
+        "empNo",
+        "name",
+        "deptName",
+        "title",
+        "oaRoleTag",
+        "isActive",
+        "updatedByUid",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Authorized platform administrator record.",
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": ["admin"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["role", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/publicity_records/{recordId}": {
+      "schema": { "$ref": "#/entities/PublicityRecord" },
+      "description": "Monthly honor and disciplinary publicity records."
+    },
+    "/policy_docs/{policyId}": {
+      "schema": { "$ref": "#/entities/PolicyDoc" },
+      "description": "Company reward/punishment policy modules."
+    },
+    "/learning_records/{recordId}": {
+      "schema": { "$ref": "#/entities/LearningRecord" },
+      "description": "Per-user policy learning completion and quiz scores."
+    },
+    "/oa_submissions/{submissionId}": {
+      "schema": { "$ref": "#/entities/OaSubmission" },
+      "description": "Employee reward and punishment OA submissions."
+    },
+    "/dingtalk_directory/{memberId}": {
+      "schema": { "$ref": "#/entities/DingTalkMember" },
+      "description": "DingTalk organizational roster for OA routing."
+    },
+    "/admins/{uid}": {
+      "schema": { "$ref": "#/entities/AdminUser" },
+      "description": "Platform administrators."
+    }
+  }
+}
