@@ -4,12 +4,23 @@
   :root {
     --font-sans: 'Plus Jakarta Sans', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --brand-start: #2F6FE4;
+    --brand-end: #1E62D0;
+    --brand-dark: #1A4FB0;
+    --brand-soft: #EEF5FF;
   }
 
   body {
     font-family: var(--font-sans);
     background-color: #f8fafc;
+    background-image: radial-gradient(
+      ellipse 85% 36% at 50% -8%,
+      rgba(47, 111, 228, 0.08),
+      transparent 70%
+    );
+    background-attachment: fixed;
     color: #0f172a;
+    -webkit-font-smoothing: antialiased;
   }
 }
 
@@ -20,4 +31,61 @@
 
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+.btn-brand {
+  background-image: linear-gradient(135deg, var(--brand-start), var(--brand-end));
+  color: #ffffff;
+  box-shadow: 0 4px 12px -2px rgba(30, 98, 208, 0.24);
+  transition: filter 180ms cubic-bezier(0.16, 1, 0.3, 1), transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-brand:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.btn-brand:active:not(:disabled) {
+  transform: translateY(0.5px);
+}
+
+@keyframes panelFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-panel-in {
+  animation: panelFadeIn 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-panel-in {
+    animation: none;
+  }
+  .btn-brand {
+    transition: none;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.55);
 }
