@@ -136,9 +136,9 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((prev) => !prev)}
-        className={`w-full bg-white border rounded-lg flex items-center justify-between gap-2 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 ${sizeClasses} ${
+        className={`w-full bg-white border rounded-xl flex items-center justify-between gap-2 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-[#2F6FE4] ${sizeClasses} ${
           open
-            ? 'border-blue-600 ring-2 ring-blue-600/15'
+            ? 'border-[#2F6FE4] ring-2 ring-[#2F6FE4]/15'
             : 'border-slate-300 hover:border-slate-400'
         }`}
       >
@@ -160,7 +160,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
         </span>
         <ChevronDown
           className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-150 ${
-            open ? 'rotate-180 text-blue-700' : ''
+            open ? 'rotate-180 text-[#1E62D0]' : ''
           }`}
         />
       </button>
@@ -176,7 +176,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
             width: coords.width,
             transform: coords.openUp ? 'translateY(-100%)' : 'none',
           }}
-          className="z-[100] bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden"
+          className="z-[100] bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden"
         >
           {searchable && (
             <div className="p-2 border-b border-slate-100 bg-slate-50">
@@ -188,7 +188,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={searchPlaceholder}
-                  className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2F6FE4]"
                 />
               </div>
             </div>
@@ -215,7 +215,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                       opt.disabled
                         ? 'opacity-45 cursor-not-allowed'
                         : isSelected
-                        ? 'bg-blue-50/80 text-blue-950'
+                        ? 'bg-[#EEF5FF] text-[#14306B]'
                         : 'hover:bg-slate-50 text-slate-800'
                     }`}
                   >
@@ -223,7 +223,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                       <div className="flex items-center gap-1.5">
                         <span
                           className={`text-xs truncate ${
-                            isSelected ? 'font-semibold text-blue-900' : 'font-medium'
+                            isSelected ? 'font-semibold text-[#1E62D0]' : 'font-medium'
                           }`}
                         >
                           {opt.label}
@@ -241,7 +241,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                       )}
                     </div>
                     {isSelected && (
-                      <Check className="w-3.5 h-3.5 text-blue-700 shrink-0 mt-0.5" />
+                      <Check className="w-3.5 h-3.5 text-[#1E62D0] shrink-0 mt-0.5" />
                     )}
                   </button>
                 );
