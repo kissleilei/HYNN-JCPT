@@ -89,7 +89,7 @@ export const MonthlyPublicityBoard: React.FC<MonthlyPublicityBoardProps> = ({
       <section className="relative overflow-hidden rounded-2xl border border-[#D6E6FF] bg-gradient-to-r from-[#EBF3FF] via-[#F4F8FF] to-[#E5F0FF] px-6 pt-6 pb-4 sm:px-8 sm:pt-7 sm:pb-5 min-h-[132px] shadow-xs flex flex-col justify-between">
         {/* Uploaded Campus & Light-Wave Banner Background */}
         <img
-          src="/assets/aistudio/image_697e063d.png"
+          src="./assets/aistudio/image_697e063d.png"
           alt="恒翼能企业园区背景"
           referrerPolicy="no-referrer"
           aria-hidden="true"
